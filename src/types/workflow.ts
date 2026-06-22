@@ -11,6 +11,7 @@ export type ExternalWorkflowColumn = Exclude<WorkflowColumn, "planned">;
 
 export type WorkflowClassificationReason =
   | "manual-planning"
+  | "system-planning"
   | "jira-done-category"
   | "jira-status"
   | "github-open-pr"
@@ -33,6 +34,7 @@ export interface WorkflowClassification {
 
 export interface WorkflowClassificationOptions {
   canEvaluateMissingPR?: boolean;
+  hasSystemPlanningOverride?: boolean;
   isActiveDevelopment?: boolean;
   isPlanned?: boolean;
   systemPlanningReasons?: SystemPlanningReason[];

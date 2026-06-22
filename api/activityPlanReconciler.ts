@@ -31,6 +31,10 @@ export async function reconcileActivityPlan(
     planState.rows[0]?.active_development_started_at ?? null;
   const previousActiveSource =
     planState.rows[0]?.active_development_source ?? null;
+  const isNewRejection =
+    rejectionReason !== null &&
+    rejectionReason !== previous?.rejectionReason;
+  const isNewConflict = input.hasConflict && !previous?.hasConflict;
 
   const clearActiveDevelopment = async (
     onlyJira = false,
@@ -48,6 +52,26 @@ export async function reconcileActivityPlan(
     return (result.rowCount ?? 0) > 0;
   };
 
+  const markPlanned = async (): Promise<void> => {
+    await client.query(
+      `INSERT INTO ticketdash.ticket_plans
+         (ticket_key, is_planned, planned_period, manual_order,
+          manual_priority, is_hidden, hidden_reason, deferred_until,
+          deferred_reason, is_blocked, blocked_reason, notes,
+          resolved_changes_requested_at)
+       VALUES ($1, true, NULL, NULL, NULL, false, NULL, NULL, NULL, false,
+               NULL, '', NULL)
+       ON CONFLICT (ticket_key) DO UPDATE SET
+         is_planned = true, planned_period = NULL, manual_order = NULL,
+         updated_at = now()`,
+      [input.ticketKey],
+    );
+    await insertSystemEvent(
+      client, input.ticketKey, "planned", false, true,
+      observationId, input.observedAt,
+    );
+  };
+
   const canPlan = ["backlog", "development"].includes(input.workflowColumn);
   if (!canPlan) {
     if (await clearActiveDevelopment()) {
@@ -60,6 +84,10 @@ export async function reconcileActivityPlan(
         observationId,
         input.observedAt,
       );
+    }
+    if (isNewConflict) {
+      await markPlanned();
+      return;
     }
     const result = await client.query<{ ticket_key: string }>(
       `UPDATE ticketdash.ticket_plans
@@ -136,26 +164,6 @@ export async function reconcileActivityPlan(
       );
     }
   }
-
-  const isNewRejection =
-    rejectionReason !== null &&
-    rejectionReason !== previous?.rejectionReason;
-  if (!isNewRejection) return;
-  await client.query(
-    `INSERT INTO ticketdash.ticket_plans
-       (ticket_key, is_planned, planned_period, manual_order,
-        manual_priority, is_hidden, hidden_reason, deferred_until,
-        deferred_reason, is_blocked, blocked_reason, notes,
-        resolved_changes_requested_at)
-     VALUES ($1, true, NULL, NULL, NULL, false, NULL, NULL, NULL, false,
-             NULL, '', NULL)
-     ON CONFLICT (ticket_key) DO UPDATE SET
-       is_planned = true, planned_period = NULL, manual_order = NULL,
-       updated_at = now()`,
-    [input.ticketKey],
-  );
-  await insertSystemEvent(
-    client, input.ticketKey, "planned", false, true,
-    observationId, input.observedAt,
-  );
+  if (!isNewRejection && !isNewConflict) return;
+  await markPlanned();
 }

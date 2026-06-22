@@ -129,6 +129,8 @@ export function createDashboardData(
       hasChangesRequested,
     );
     const workflow = classifyWorkflow(issue, linkedPRs.length > 0, {
+      hasSystemPlanningOverride:
+        rejectionReason !== null || systemPlanningReasons.includes("merge-conflict"),
       isActiveDevelopment: plan.isActiveDevelopment,
       isPlanned: plan.isPlanned,
       systemPlanningReasons,

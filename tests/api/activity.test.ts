@@ -105,6 +105,49 @@ describe("ActivityRepository", () => {
     expect(values).toContain("planned");
   });
 
+  it("records a new merge conflict and plans it in the same transaction", async () => {
+    const query = vi.fn(async (sql: string, _parameters?: unknown[]) => {
+      if (sql.includes("FROM ticketdash.activity_observations")) {
+        return result([{
+          has_conflict: false,
+          jira_status: "Code Review",
+          open_thread_count: 0,
+          pull_requests: [],
+          rejection_reason: null,
+          review_state: "pending-review",
+          workflow_column: "code-review",
+        }]);
+      }
+      if (sql.includes("RETURNING id")) return result([{ id: 10 }]);
+      return result();
+    });
+    const database: Database = {
+      close: vi.fn(),
+      query: vi.fn(),
+      transaction: async (operation) => operation({
+        query,
+        release: vi.fn(),
+      } as unknown as PoolClient),
+    };
+
+    await new ActivityRepository(database).capture([{
+      ...input,
+      hasConflict: true,
+      pullRequests: [],
+      reviewState: "pending-review",
+      workflowColumn: "code-review",
+    }]);
+
+    const sql = query.mock.calls.map(([statement]) => statement).join("\n");
+    const values = query.mock.calls.flatMap((call) => {
+      const parameters = (call as unknown[])[1];
+      return Array.isArray(parameters) ? parameters : [];
+    });
+    expect(values).toContain("merge-conflict-changed");
+    expect(sql).toContain("INSERT INTO ticketdash.ticket_plans");
+    expect(values).toContain("planned");
+  });
+
   it("automatically unplans a ticket that enters testing", async () => {
     const query = vi.fn(async (sql: string, _parameters?: unknown[]) => {
       if (sql.includes("FROM ticketdash.activity_observations")) {

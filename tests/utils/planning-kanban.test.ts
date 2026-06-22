@@ -8,7 +8,7 @@ import {
   getPlanningVisibility,
   withPlanChanges,
 } from "../../src/utils/planning";
-import { createIssue, createPlan } from "../fixtures/domain";
+import { createIssue, createPlan, createPR } from "../fixtures/domain";
 
 describe("personal planning", () => {
   it("normalizes dependent fields and visibility", () => {
@@ -183,5 +183,35 @@ describe("kanban grouping", () => {
     ).tickets;
 
     expect(tickets[0]?.workflow.column).toBe("development");
+  });
+
+  it("shows system-planned merge-conflict tickets in planned even when Jira is still in code review", () => {
+    const tickets = createDashboardData(
+      [createIssue("APP-100", "Code Review")],
+      [createPR("APP-100", { mergeable: "CONFLICTING" })],
+      {},
+      {
+        "APP-100": createPlan("APP-100", {
+          isPlanned: true,
+        }),
+      },
+      new Date("2026-06-15T10:00:00.000Z"),
+      {
+        githubUsername: "tamara",
+        projectKeys: ["APP"],
+        ticketKeyPrefixes: ["APP"],
+        workflowStatuses: {
+          backlog: ["Open"],
+          codeReview: ["Code Review"],
+          development: ["Dev"],
+          finalized: ["Done"],
+          release: ["Ready for production"],
+          testing: ["QA"],
+        },
+      },
+    ).tickets;
+
+    expect(tickets[0]?.workflow.column).toBe("planned");
+    expect(tickets[0]?.workflow.reason).toBe("system-planning");
   });
 });

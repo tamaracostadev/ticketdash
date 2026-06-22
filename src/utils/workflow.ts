@@ -83,6 +83,7 @@ export function classifyWorkflow(
 ): WorkflowClassification {
   const {
     canEvaluateMissingPR = false,
+    hasSystemPlanningOverride = false,
     isActiveDevelopment = false,
     isPlanned = false,
     systemPlanningReasons = [],
@@ -94,14 +95,16 @@ export function classifyWorkflow(
     workflowStatuses,
   );
   const canPlan =
-    external.column === "backlog" || external.column === "development";
+    external.column === "backlog" ||
+    external.column === "development" ||
+    hasSystemPlanningOverride;
 
   if (canPlan && isPlanned && !isActiveDevelopment) {
     return {
       column: "planned",
       divergence: external.divergence,
       externalColumn: external.column,
-      reason: "manual-planning",
+      reason: hasSystemPlanningOverride ? "system-planning" : "manual-planning",
       systemPlanningReasons,
     };
   }
