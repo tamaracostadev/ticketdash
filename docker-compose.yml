@@ -1,0 +1,89 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ticketdash}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticketdash}
+      POSTGRES_USER: ${POSTGRES_USER:-ticketdash}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ticketdash} -d ${POSTGRES_DB:-ticketdash}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  migrate:
+    build:
+      context: .
+      target: development
+    command: npm run db:migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ticketdash}:${POSTGRES_PASSWORD:-ticketdash}@db:5432/${POSTGRES_DB:-ticketdash}
+    volumes:
+      - ./api:/app/api
+      - ./server:/app/server
+      - ./src/config:/app/src/config
+
+  api:
+    build:
+      context: .
+      target: development
+    command: npm run api:dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ticketdash}:${POSTGRES_PASSWORD:-ticketdash}@db:5432/${POSTGRES_DB:-ticketdash}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/db').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - ./api:/app/api
+      - ./server:/app/server
+      - ./src/config:/app/src/config
+      - ./src/types:/app/src/types
+      - ./src/utils/activityValidation.ts:/app/src/utils/activityValidation.ts
+      - ./src/utils/dates.ts:/app/src/utils/dates.ts
+      - ./src/utils/lastSeenValidation.ts:/app/src/utils/lastSeenValidation.ts
+      - ./src/utils/reportValidation.ts:/app/src/utils/reportValidation.ts
+      - ./src/utils/reflectionValidation.ts:/app/src/utils/reflectionValidation.ts
+      - ./src/utils/ticketKeys.ts:/app/src/utils/ticketKeys.ts
+      - ./src/utils/ticketPlanValidation.ts:/app/src/utils/ticketPlanValidation.ts
+
+  dashboard:
+    build:
+      context: .
+      target: development
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - "127.0.0.1:5174:5173"
+    volumes:
+      - ./api:/app/api
+      - ./server:/app/server
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./tsconfig.app.json:/app/tsconfig.app.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - ./tsconfig.test.json:/app/tsconfig.test.json
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./vitest.config.ts:/app/vitest.config.ts
+    command: npm run dev -- --host
+
+volumes:
+  postgres_data:

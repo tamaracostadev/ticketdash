@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "api",
+    "vite.config.ts",
+    "server",
+    "src/config",
+    "src/types",
+    "src/utils/activityValidation.ts",
+    "src/utils/dates.ts",
+    "src/utils/lastSeenValidation.ts",
+    "src/utils/reportValidation.ts",
+    "src/utils/reflectionValidation.ts",
+    "src/utils/ticketKeys.ts",
+    "src/utils/ticketPlanValidation.ts"
+  ]
+}
