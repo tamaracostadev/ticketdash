@@ -1,5 +1,6 @@
 import {
   readList,
+  readPositiveInteger,
   readProjectKeys,
   readSearchScopes,
   readValue,
@@ -14,11 +15,14 @@ import type { WorkflowStatusConfig } from "../src/types/integrations.ts";
 export interface JiraServerConfig {
   apiToken: string;
   email: string;
+  issueSearchLimit: number;
   projectKeys: string[];
   url: string;
 }
 
 export interface GitHubServerConfig {
+  authoredSearchLimit: number;
+  reviewRequestedSearchLimit: number;
   searchScopes: string[];
   token: string;
   username: string;
@@ -65,6 +69,7 @@ function readJiraConfig(
   return {
     apiToken,
     email,
+    issueSearchLimit: readPositiveInteger(env, "JIRA_ISSUES_LIMIT", 50),
     projectKeys: readProjectKeys(env, "JIRA_PROJECT_KEYS"),
     url,
   };
@@ -76,7 +81,21 @@ function readGitHubConfig(
   const token = readValue(env, "GITHUB_TOKEN");
   const username = readValue(env, "GITHUB_USERNAME");
   return token && username
-    ? { searchScopes: readSearchScopes(env), token, username }
+    ? {
+      authoredSearchLimit: readPositiveInteger(
+        env,
+        "GITHUB_AUTHORED_PRS_LIMIT",
+        30,
+      ),
+      reviewRequestedSearchLimit: readPositiveInteger(
+        env,
+        "GITHUB_REVIEW_REQUESTED_PRS_LIMIT",
+        30,
+      ),
+      searchScopes: readSearchScopes(env),
+      token,
+      username,
+    }
     : null;
 }
 

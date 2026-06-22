@@ -140,9 +140,12 @@ See [.env.example](./.env.example) for every supported setting.
 | `JIRA_EMAIL` | Yes | Jira account email used by the local API. |
 | `JIRA_API_TOKEN` | Yes | Jira Cloud API token for `JIRA_EMAIL`. |
 | `JIRA_PROJECT_KEYS` | No | Comma-separated Jira project keys to load. Empty means every visible active assigned project. |
+| `JIRA_ISSUES_LIMIT` | No | Maximum Jira issues loaded per refresh. Defaults to `50`. |
 | `GITHUB_TOKEN` | Yes | GitHub token used by the local API. |
 | `GITHUB_USERNAME` | Yes | GitHub login whose authored PRs and review-requested PRs are queried. |
 | `GITHUB_SEARCH_SCOPES` | No | Additional GitHub search qualifiers such as `org:example` or `repo:owner/name`. |
+| `GITHUB_AUTHORED_PRS_LIMIT` | No | Maximum authored pull requests loaded per refresh. Defaults to `30`. |
+| `GITHUB_REVIEW_REQUESTED_PRS_LIMIT` | No | Maximum review-requested pull requests loaded per refresh. Defaults to `30`. |
 | `TICKET_KEY_PREFIXES` | No | Comma-separated Jira key prefixes accepted in PR titles and branch names. Empty derives them from loaded Jira tickets. |
 | `WORKFLOW_BACKLOG_STATUSES` | No | Jira status names that map to the backlog column. |
 | `WORKFLOW_DEVELOPMENT_STATUSES` | No | Jira status names that map to the development column. |
@@ -153,6 +156,14 @@ See [.env.example](./.env.example) for every supported setting.
 | `POSTGRES_DB` | No | Local PostgreSQL database name. Defaults to `ticketdash`. |
 | `POSTGRES_USER` | No | Local PostgreSQL username. Defaults to `ticketdash`. |
 | `POSTGRES_PASSWORD` | No | Local PostgreSQL password. Defaults to `ticketdash`. Change before storing real data. |
+
+Recommended starting points:
+
+- keep the defaults (`50 / 30 / 30`) for a single developer with a focused queue;
+- raise `JIRA_ISSUES_LIMIT` first if assigned Jira work is being truncated;
+- raise `GITHUB_AUTHORED_PRS_LIMIT` if you regularly keep many open PRs at once;
+- raise `GITHUB_REVIEW_REQUESTED_PRS_LIMIT` if review work is a major part of your flow;
+- prefer increasing in small steps, because these values affect every refresh.
 
 ## Run
 
@@ -273,46 +284,13 @@ Public architecture and feature references:
 
 - Local, single-user application without hosted authentication.
 - Jira Cloud only.
-- Jira loads up to 50 issues per refresh.
-- GitHub loads up to 30 authored PRs plus up to 30 review-requested PRs per
-  refresh before local merging and filtering.
-- `lastSeen` is persisted by the local API in PostgreSQL. Existing browser
-  values are imported once and removed locally only after a successful import.
-- Jira/GitHub operational snapshots and personal planning events are stored in
-  PostgreSQL for per-ticket history.
-- Personal reflections are persisted separately from automatic events and also
-  appear in the per-ticket timeline with `user` origin.
-- Day, week, month, year and custom-range reports use the browser timezone dynamically.
-- A daily work log view groups personal actions, workflow progress and
-  regressions by ticket.
-- Reviews and re-reviews executed by the configured GitHub user are recorded as
-  separate daily-log entries.
-- A dedicated review-work section surfaces pending review requests and
-  re-review items detected from GitHub signals.
 - Review-request visibility may be partially limited by the GitHub token
   access; in those cases the dashboard shows a dismissible warning instead of
   failing the full load.
-- Tickets returning from review or QA to development are automatically planned
-  with a persisted rejection reason and high automatic priority.
-- Hidden duplicate tickets can be linked to one visible primary ticket, and the
-  primary ticket raises an action-required reminder when it reaches `release`
-  before any linked duplicate catches up.
-- Manual order is persisted in PostgreSQL and takes precedence inside the same
-  workflow column.
-- The Kanban board supports horizontal grab-to-scroll navigation and sticky
-  per-column headers while you move down the cards.
-- Summary reports split delivery, review and rework metrics, including review,
-  QA and conflict rework counts.
-- Summary reports also expose cycle time for `development active -> code review`
-  and `development active -> release`, with average and median values plus the
-  previous equivalent period for comparison.
-- Development tickets can be started or paused explicitly, and explicit Jira
-  in-progress statuses automatically mark them as active work.
-- Eligible tickets can expose an assisted `Move to development` action that
-  reads Jira transitions first and only executes when exactly one direct
-  development transition is available.
-- Workflow alerts focus on explicit cases such as `Code review without PR`,
-  `Release with open PR` and `Test with open threads`.
+- Refresh sizes are configurable, but still snapshot-based rather than paginated:
+  `JIRA_ISSUES_LIMIT`, `GITHUB_AUTHORED_PRS_LIMIT` and
+  `GITHUB_REVIEW_REQUESTED_PRS_LIMIT`.
+- Higher limits increase response size and refresh cost on both Jira and GitHub.
 - No polling, browser end-to-end suite or hosted deployment.
 - No license has been selected yet.
 

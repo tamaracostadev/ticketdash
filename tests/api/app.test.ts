@@ -38,7 +38,13 @@ describe("local API", () => {
     const app = buildApp({
       database: createDatabase(),
       integrations: {
-        github: { searchScopes: [], token: "secret-token", username: "user" },
+        github: {
+          authoredSearchLimit: 30,
+          reviewRequestedSearchLimit: 30,
+          searchScopes: [],
+          token: "secret-token",
+          username: "user",
+        },
         jira: null,
         public: EMPTY_PUBLIC_DASHBOARD_CONFIG,
       },
@@ -57,7 +63,13 @@ describe("local API", () => {
     const app = buildApp({
       database: createDatabase(),
       integrations: {
-        github: { searchScopes: [], token: "secret-token", username: "user" },
+        github: {
+          authoredSearchLimit: 30,
+          reviewRequestedSearchLimit: 30,
+          searchScopes: [],
+          token: "secret-token",
+          username: "user",
+        },
         jira: null,
         public: EMPTY_PUBLIC_DASHBOARD_CONFIG,
       },

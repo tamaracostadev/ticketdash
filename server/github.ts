@@ -9,9 +9,11 @@ import type { GitHubServerConfig } from "./config";
 const SEARCH_PRS_QUERY = `
   query SearchPullRequests(
     $authoredSearchQuery: String!,
+    $authoredSearchLimit: Int!,
     $reviewRequestedSearchQuery: String!,
+    $reviewRequestedSearchLimit: Int!,
   ) {
-    authored: search(query: $authoredSearchQuery, type: ISSUE, first: 30) {
+    authored: search(query: $authoredSearchQuery, type: ISSUE, first: $authoredSearchLimit) {
       nodes {
         ... on PullRequest {
           number title url headRefName mergeable reviewDecision isDraft updatedAt
@@ -39,7 +41,7 @@ const SEARCH_PRS_QUERY = `
     reviewRequested: search(
       query: $reviewRequestedSearchQuery,
       type: ISSUE,
-      first: 30,
+      first: $reviewRequestedSearchLimit,
     ) {
       nodes {
         ... on PullRequest {
@@ -143,12 +145,14 @@ export async function fetchGitHubPRs(
     body: JSON.stringify({
       query: SEARCH_PRS_QUERY,
       variables: {
+        authoredSearchLimit: config.authoredSearchLimit,
         authoredSearchQuery: [
           "type:pr",
           "state:open",
           `author:${config.username}`,
           ...config.searchScopes,
         ].join(" "),
+        reviewRequestedSearchLimit: config.reviewRequestedSearchLimit,
         reviewRequestedSearchQuery: [
           "type:pr",
           "state:open",

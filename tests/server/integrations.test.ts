@@ -12,11 +12,14 @@ import { createIssue, createPR } from "../fixtures/domain";
 describe("generic integration configuration", () => {
   it("parses projects, prefixes, scopes and workflow groups", () => {
     const config = getIntegrationConfig({
+      GITHUB_AUTHORED_PRS_LIMIT: "45",
+      GITHUB_REVIEW_REQUESTED_PRS_LIMIT: "20",
       GITHUB_SEARCH_SCOPES: "org:example, repo:owner/service",
       GITHUB_TOKEN: "token",
       GITHUB_USERNAME: "user",
       JIRA_API_TOKEN: "token",
       JIRA_EMAIL: "user@example.com",
+      JIRA_ISSUES_LIMIT: "75",
       JIRA_PROJECT_KEYS: "app, ops",
       JIRA_URL: "https://example.atlassian.net",
       TICKET_KEY_PREFIXES: "app,ops",
@@ -24,6 +27,9 @@ describe("generic integration configuration", () => {
     });
 
     expect(config.jira?.projectKeys).toEqual(["APP", "OPS"]);
+    expect(config.jira?.issueSearchLimit).toBe(75);
+    expect(config.github?.authoredSearchLimit).toBe(45);
+    expect(config.github?.reviewRequestedSearchLimit).toBe(20);
     expect(config.github?.searchScopes).toEqual([
       "org:example",
       "repo:owner/service",
@@ -65,6 +71,11 @@ describe("generic integration configuration", () => {
       GITHUB_TOKEN: "token",
       GITHUB_USERNAME: "user",
     })).toThrow("invalid qualifier");
+    expect(() => getIntegrationConfig({
+      GITHUB_TOKEN: "token",
+      GITHUB_USERNAME: "user",
+      GITHUB_AUTHORED_PRS_LIMIT: "0",
+    })).toThrow("positive integer");
   });
 });
 
@@ -76,6 +87,7 @@ describe("generated provider queries", () => {
     const base = {
       apiToken: "token",
       email: "user@example.com",
+      issueSearchLimit: 75,
       url: "https://example.atlassian.net",
     };
 
@@ -83,6 +95,7 @@ describe("generated provider queries", () => {
     expect(String(request.mock.calls[0]?.[0])).toContain(
       "project+in+%28APP%2C+OPS%29",
     );
+    expect(String(request.mock.calls[0]?.[0])).toContain("maxResults=75");
 
     await fetchJiraIssues({ ...base, projectKeys: [] }, request);
     expect(String(request.mock.calls[1]?.[0])).not.toContain("project+in");
@@ -106,6 +119,7 @@ describe("generated provider queries", () => {
     const base = {
       apiToken: "token",
       email: "user@example.com",
+      issueSearchLimit: 50,
       projectKeys: [],
       url: "https://example.atlassian.net",
     };
@@ -154,6 +168,8 @@ describe("generated provider queries", () => {
       },
     })));
     await fetchGitHubPRs({
+      authoredSearchLimit: 40,
+      reviewRequestedSearchLimit: 12,
       searchScopes: ["org:example", "repo:owner/service"],
       token: "token",
       username: "user",
@@ -162,13 +178,17 @@ describe("generated provider queries", () => {
     const body = JSON.parse(String(request.mock.calls[0]?.[1]?.body)) as {
       query: string;
       variables: {
+        authoredSearchLimit: number;
         authoredSearchQuery: string;
+        reviewRequestedSearchLimit: number;
         reviewRequestedSearchQuery: string;
       };
     };
+    expect(body.variables.authoredSearchLimit).toBe(40);
     expect(body.variables.authoredSearchQuery).toContain(
       "author:user org:example repo:owner/service",
     );
+    expect(body.variables.reviewRequestedSearchLimit).toBe(12);
     expect(body.variables.reviewRequestedSearchQuery).toContain(
       "review-requested:user org:example repo:owner/service",
     );
@@ -190,6 +210,8 @@ describe("generated provider queries", () => {
     })));
 
     await expect(fetchGitHubPRs({
+      authoredSearchLimit: 30,
+      reviewRequestedSearchLimit: 30,
       searchScopes: [],
       token: "token",
       username: "user",

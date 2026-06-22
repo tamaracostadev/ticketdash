@@ -31,3 +31,25 @@ export function readSearchScopes(env: ServerEnv): string[] {
   }
   return scopes;
 }
+
+export function readPositiveInteger(
+  env: ServerEnv,
+  key: string,
+  fallback: number,
+): number {
+  const rawValue = readValue(env, key);
+  if (rawValue === null) {
+    return fallback;
+  }
+
+  if (!/^[0-9]+$/.test(rawValue)) {
+    throw new Error(`${key} must be a positive integer.`);
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${key} must be a positive integer.`);
+  }
+
+  return value;
+}

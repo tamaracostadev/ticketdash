@@ -129,7 +129,7 @@ export async function fetchJiraIssues(
   const url = new URL(`${config.url}/rest/api/3/search/jql`);
   url.searchParams.set("jql", getJql(config.projectKeys));
   url.searchParams.set("fields", FIELDS.join(","));
-  url.searchParams.set("maxResults", "50");
+  url.searchParams.set("maxResults", String(config.issueSearchLimit));
 
   const response = await request(url, {
     headers: {
