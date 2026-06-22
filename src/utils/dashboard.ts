@@ -129,6 +129,7 @@ export function createDashboardData(
       hasChangesRequested,
     );
     const workflow = classifyWorkflow(issue, linkedPRs.length > 0, {
+      isActiveDevelopment: plan.isActiveDevelopment,
       isPlanned: plan.isPlanned,
       systemPlanningReasons,
     }, config?.workflowStatuses);

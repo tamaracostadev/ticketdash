@@ -8,6 +8,8 @@
 - Do not publish `docker compose config` output because it expands `env_file`.
 - Search for organization names, private URLs, emails, usernames and tokens.
 - Review screenshots for ticket titles, repository names and personal notes.
+- Prefer `http://localhost:5174/?demo=true` when capturing screenshots for the
+  public repository.
 
 ## Repository content
 

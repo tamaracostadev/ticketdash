@@ -4,6 +4,26 @@ Local, single-user dashboard that combines assigned Jira work with open GitHub
 pull requests. It provides a Kanban view, actionable review signals and personal
 planning persisted in PostgreSQL.
 
+## Screenshots
+
+All screenshots below use `?demo=true`, which loads fully fictitious local data.
+
+### Kanban
+
+![Kanban view](./docs/screenshots/kanban.png)
+
+### List
+
+![List view](./docs/screenshots/list.png)
+
+### Reports summary
+
+![Reports summary](./docs/screenshots/reports-summary.png)
+
+### Daily work log
+
+![Daily work log](./docs/screenshots/reports-daily-log.png)
+
 ## Features
 
 - Loads active Jira issues assigned to the configured account.
@@ -145,6 +165,16 @@ take a few minutes. Subsequent runs reuse the cache.
 
 Open `http://localhost:5174`. Only the dashboard is published, and only on
 `127.0.0.1`. The API and PostgreSQL remain inside the Docker network.
+
+For public screenshots or recordings without real Jira or GitHub data, open:
+
+```text
+http://localhost:5174/?demo=true
+```
+
+Demo mode replaces live integrations, reports and review signals with fully
+fictitious in-browser data. It does not require real ticket content to produce
+shareable UI screenshots.
 
 The board loads assigned Jira tickets and open GitHub pull requests on the
 first visit. If it stays empty, check that the configured account has

@@ -25,7 +25,7 @@ The exact Jira status names for each group are configured through
 - active development can start from an explicit Jira in-progress status or a
   manual `Start work` action
 - active development can be paused manually
-- development tickets may remain planned when they are active work
+- starting active development removes the ticket from `planned`
 - tickets that regress from review or QA back to development are automatically
   added to planned with high automatic priority
 - tickets outside backlog or development are automatically removed from planned

@@ -83,6 +83,7 @@ export function classifyWorkflow(
 ): WorkflowClassification {
   const {
     canEvaluateMissingPR = false,
+    isActiveDevelopment = false,
     isPlanned = false,
     systemPlanningReasons = [],
   } = options;
@@ -95,7 +96,7 @@ export function classifyWorkflow(
   const canPlan =
     external.column === "backlog" || external.column === "development";
 
-  if (canPlan && isPlanned) {
+  if (canPlan && isPlanned && !isActiveDevelopment) {
     return {
       column: "planned",
       divergence: external.divergence,

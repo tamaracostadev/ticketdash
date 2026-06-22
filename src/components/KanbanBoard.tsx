@@ -8,6 +8,7 @@ import { useHorizontalBoardDrag } from "../hooks/useHorizontalBoardDrag";
 import { KanbanColumn } from "./KanbanColumn";
 
 interface KanbanBoardProps {
+  demoMode?: boolean;
   duplicateCandidates: Array<{
     ticketKey: string;
     title: string;
@@ -22,6 +23,7 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({
+  demoMode = false,
   duplicateCandidates,
   hasActiveFilters,
   onRemovePlan,
@@ -68,7 +70,7 @@ export function KanbanBoard({
         </p>
       )}
       <div
-        className={`kanban-scrollbar max-h-[calc(100vh-16rem)] overflow-auto pb-4 ${horizontalDrag.className}`.trim()}
+        className={`kanban-scrollbar ${demoMode ? "overflow-x-auto overflow-y-visible" : "max-h-[calc(100vh-16rem)] overflow-auto"} pb-4 ${horizontalDrag.className}`.trim()}
         ref={boardRef}
         onPointerCancel={horizontalDrag.onPointerCancel}
         onPointerDown={horizontalDrag.onPointerDown}

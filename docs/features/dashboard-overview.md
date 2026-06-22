@@ -16,6 +16,11 @@ single-user operational view.
 - `Review work`: dedicated section in the main operational flow for teammate
   PRs that require your review attention
 
+## Demo mode
+
+Appending `?demo=true` to the dashboard URL switches the UI to a fully
+fictitious dataset for screenshots, public demos and documentation.
+
 ## Ticket linking
 
 Tickets are linked to pull requests when a Jira key appears in the branch name

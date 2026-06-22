@@ -230,17 +230,17 @@ export function ReportsPanel({ tickets }: ReportsPanelProps) {
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-100">
-            Personal summary
-          </h2>
-          <p className="text-sm text-slate-400">
-            Day, week, month, year and custom-range metrics from persisted activity.
-          </p>
-        </div>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <div className="rounded-full bg-slate-950 p-1">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">
+              Personal summary
+            </h2>
+            <p className="text-sm text-slate-400">
+              Day, week, month, year and custom-range metrics from persisted activity.
+            </p>
+          </div>
+          <div className="ml-auto rounded-full bg-slate-950 p-1">
             {([
               ["daily-log", "Daily log"],
               ["summary", "Summary"],
@@ -259,67 +259,6 @@ export function ReportsPanel({ tickets }: ReportsPanelProps) {
               </button>
             ))}
           </div>
-          {reportView === "summary" && (
-            <>
-              {(["day", "week", "month", "year", "custom"] as const).map((value) => (
-                <button
-                  className={`rounded-full px-3 py-1 text-sm ${
-                    period === value
-                      ? "bg-sky-500/20 text-sky-200"
-                      : "bg-slate-800 text-slate-400"
-                  }`}
-                  key={value}
-                  type="button"
-                  onClick={() => setPeriod(value)}
-                >
-                  {PERIOD_LABELS[value]}
-                </button>
-              ))}
-              {period === "custom" ? (
-                <>
-                  <label className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
-                    <span>From</span>
-                    <input
-                      className="bg-transparent text-slate-100"
-                      type="date"
-                      value={rangeStart}
-                      onChange={(event) => setRangeStart(event.target.value)}
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
-                    <span>To</span>
-                    <input
-                      className="bg-transparent text-slate-100"
-                      type="date"
-                      value={rangeEnd}
-                      onChange={(event) => setRangeEnd(event.target.value)}
-                    />
-                  </label>
-                </>
-              ) : (
-                <label className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
-                  <span>Reference</span>
-                  <input
-                    className="bg-transparent text-slate-100"
-                    type="date"
-                    value={reportReferenceDate}
-                    onChange={(event) => setReportReferenceDate(event.target.value)}
-                  />
-                </label>
-              )}
-              <button
-                className={`rounded-full px-3 py-1 text-sm ${
-                  includeNotes
-                    ? "bg-amber-500/20 text-amber-200"
-                    : "bg-slate-800 text-slate-400"
-                }`}
-                type="button"
-                onClick={() => setIncludeNotes((value) => !value)}
-              >
-                {includeNotes ? "Hide notes" : "Show notes"}
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -506,12 +445,73 @@ export function ReportsPanel({ tickets }: ReportsPanelProps) {
         </p>
       ) : report.data ? (
         <div className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
-            <span>
-              Period: {formatRange(report.data.startAt, report.data.timezone)}{" "}
-              to {formatInclusiveEnd(report.data.endAt, report.data.timezone)}
-            </span>
-            <span>Timezone: {report.data.timezone}</span>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+            <div className="flex flex-wrap gap-3">
+              <span>
+                Period: {formatRange(report.data.startAt, report.data.timezone)}{" "}
+                to {formatInclusiveEnd(report.data.endAt, report.data.timezone)}
+              </span>
+              <span>Timezone: {report.data.timezone}</span>
+            </div>
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {(["day", "week", "month", "year", "custom"] as const).map((value) => (
+                <button
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    period === value
+                      ? "bg-sky-500/20 text-sky-200"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                  key={`summary-inline-${value}`}
+                  type="button"
+                  onClick={() => setPeriod(value)}
+                >
+                  {PERIOD_LABELS[value]}
+                </button>
+              ))}
+              {period === "custom" ? (
+                <>
+                  <label className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
+                    <span>From</span>
+                    <input
+                      className="bg-transparent text-slate-100"
+                      type="date"
+                      value={rangeStart}
+                      onChange={(event) => setRangeStart(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
+                    <span>To</span>
+                    <input
+                      className="bg-transparent text-slate-100"
+                      type="date"
+                      value={rangeEnd}
+                      onChange={(event) => setRangeEnd(event.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
+                  <span>Reference</span>
+                  <input
+                    className="bg-transparent text-slate-100"
+                    type="date"
+                    value={reportReferenceDate}
+                    onChange={(event) => setReportReferenceDate(event.target.value)}
+                  />
+                </label>
+              )}
+              <button
+                className={`rounded-full px-3 py-1 text-sm ${
+                  includeNotes
+                    ? "bg-amber-500/20 text-amber-200"
+                    : "bg-slate-800 text-slate-400"
+                }`}
+                type="button"
+                onClick={() => setIncludeNotes((value) => !value)}
+              >
+                {includeNotes ? "Hide notes" : "Show notes"}
+              </button>
+            </div>
           </div>
 
           {([
@@ -561,6 +561,11 @@ export function ReportsPanel({ tickets }: ReportsPanelProps) {
                 report.data.timezone,
               )}
             </h3>
+            <p className="mt-2 text-sm text-slate-400">
+              Based on persisted <span className="text-slate-300">active development</span> start events.
+              The cycle ends on the first move to <span className="text-slate-300">code review</span> or{" "}
+              <span className="text-slate-300">release</span> in the selected period.
+            </p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {([
                 [

@@ -24,6 +24,21 @@ describe("personal planning", () => {
     expect(getPlanningVisibility(plan, new Date("2026-06-15T10:00:00.000Z")))
       .toBe("deferred");
   });
+
+  it("removes planned state when active development starts", () => {
+    const plan = withPlanChanges(createTicketPlan("app-1"), {
+      isActiveDevelopment: true,
+      activeDevelopmentSource: "manual",
+      activeDevelopmentStartedAt: "2026-06-16T10:00:00.000Z",
+      isPlanned: true,
+      manualOrder: 1,
+      plannedPeriod: "today",
+    });
+
+    expect(plan.isPlanned).toBe(false);
+    expect(plan.manualOrder).toBeNull();
+    expect(plan.plannedPeriod).toBeNull();
+  });
 });
 
 describe("kanban grouping", () => {
@@ -135,5 +150,38 @@ describe("kanban grouping", () => {
       .find((column) => column.id === "planned")
       ?.tickets.map((ticket) => ticket.issue.key);
     expect(plannedTickets).toEqual(["APP-400", "APP-300"]);
+  });
+
+  it("keeps active development tickets in development even when a stale plan still exists", () => {
+    const tickets = createDashboardData(
+      [createIssue("APP-100", "Dev")],
+      [],
+      {},
+      {
+        "APP-100": createPlan("APP-100", {
+          isActiveDevelopment: true,
+          activeDevelopmentSource: "manual",
+          activeDevelopmentStartedAt: "2026-06-15T10:00:00.000Z",
+          isPlanned: true,
+          plannedPeriod: "today",
+        }),
+      },
+      new Date("2026-06-15T10:00:00.000Z"),
+      {
+        githubUsername: "tamara",
+        projectKeys: ["APP"],
+        ticketKeyPrefixes: ["APP"],
+        workflowStatuses: {
+          backlog: ["Open"],
+          codeReview: ["Code Review"],
+          development: ["Dev"],
+          finalized: ["Done"],
+          release: ["Ready for production"],
+          testing: ["QA"],
+        },
+      },
+    ).tickets;
+
+    expect(tickets[0]?.workflow.column).toBe("development");
   });
 });

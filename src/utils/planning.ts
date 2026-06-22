@@ -45,6 +45,7 @@ export function withPlanChanges(
   changes: Partial<Omit<TicketPlan, "ticketKey">>,
 ): TicketPlan {
   const updated = { ...plan, ...changes };
+  const isActiveDevelopment = updated.isActiveDevelopment;
   return {
     ...updated,
     activeDevelopmentSource: updated.isActiveDevelopment
@@ -59,6 +60,9 @@ export function withPlanChanges(
         ? updated.duplicateOfTicketKey
         : null,
     hiddenReason: updated.isHidden ? updated.hiddenReason : null,
-    plannedPeriod: updated.isPlanned ? updated.plannedPeriod : null,
+    isPlanned: isActiveDevelopment ? false : updated.isPlanned,
+    manualOrder: isActiveDevelopment ? null : updated.manualOrder,
+    plannedPeriod:
+      isActiveDevelopment ? null : updated.isPlanned ? updated.plannedPeriod : null,
   };
 }

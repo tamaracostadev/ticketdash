@@ -33,6 +33,7 @@ export interface WorkflowClassification {
 
 export interface WorkflowClassificationOptions {
   canEvaluateMissingPR?: boolean;
+  isActiveDevelopment?: boolean;
   isPlanned?: boolean;
   systemPlanningReasons?: SystemPlanningReason[];
 }
