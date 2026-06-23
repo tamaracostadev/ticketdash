@@ -299,9 +299,63 @@ describe("ActivityRepository", () => {
 
     const eventTypes = query.mock.calls
       .filter(([sql]) => String(sql).includes("INSERT INTO ticketdash.activity_events"))
-      .map(([, values]) => (values as unknown[])[2]);
+      .map((call) => {
+        const values = (call as unknown[])[1];
+        return Array.isArray(values) ? values[2] : undefined;
+      });
 
     expect(eventTypes).toContain("re-review-submitted");
+  });
+
+  it("records a review event on the first captured observation of the day", async () => {
+    const reviewAt = "2026-06-19T15:30:00.000Z";
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("FROM ticketdash.activity_observations")) {
+        return result([]);
+      }
+      if (sql.includes("FROM ticketdash.ticket_plans")) {
+        return result([]);
+      }
+      if (sql.includes("RETURNING id")) return result([{ id: 14 }]);
+      return result();
+    });
+    const database: Database = {
+      close: vi.fn(),
+      query: vi.fn(),
+      transaction: async (operation) => operation({
+        query,
+        release: vi.fn(),
+      } as unknown as PoolClient),
+    };
+
+    await new ActivityRepository(database, "reviewer").capture([{
+      ...input,
+      jiraStatus: "Code Review",
+      pullRequests: [{
+        latestCommitAt: "2026-06-19T15:00:00.000Z",
+        latestOpinionatedReviews: [{
+          authorLogin: "reviewer",
+          state: "APPROVED",
+          submittedAt: reviewAt,
+        }],
+        mergeable: "MERGEABLE",
+        number: 11,
+        openThreadCount: 0,
+        repository: "org/repo",
+        reviewStatus: "approved",
+      }],
+      reviewState: "approved",
+      workflowColumn: "code-review",
+    }]);
+
+    const eventTypes = query.mock.calls
+      .filter(([sql]) => String(sql).includes("INSERT INTO ticketdash.activity_events"))
+      .map((call) => {
+        const values = (call as unknown[])[1];
+        return Array.isArray(values) ? values[2] : undefined;
+      });
+
+    expect(eventTypes).toContain("review-submitted");
   });
 });
 

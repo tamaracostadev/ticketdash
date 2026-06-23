@@ -79,7 +79,10 @@ export function useDashboard() {
 
     const observations = createActivityCapture(
       data.tickets,
+      prs.data?.prs ?? [],
       new Date().toISOString(),
+      integrations.data?.config.ticketKeyPrefixes ?? [],
+      integrations.data?.config.githubUsername,
     );
     const fingerprint = JSON.stringify(
       observations.map(({ observedAt: _, ...observation }) => observation),

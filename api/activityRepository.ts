@@ -46,12 +46,19 @@ function getLatestReviewByUser(
   pr: ActivityPullRequest,
   username: string,
 ) {
+  return getReviewsByUser(pr, username)[0]
+    ?? null;
+}
+
+function getReviewsByUser(
+  pr: ActivityPullRequest,
+  username: string,
+) {
   return [...pr.latestOpinionatedReviews]
     .filter((review) =>
       review.authorLogin?.toLowerCase() === username.toLowerCase()
     )
-    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt))[0]
-    ?? null;
+    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 }
 
 export class ActivityRepository {
@@ -124,6 +131,9 @@ export class ActivityRepository {
       }
       await this.captureReviewEvents(client, previous, input, observationId);
     }
+    if (!previous) {
+      await this.captureReviewEvents(client, null, input, observationId);
+    }
     await reconcileActivityPlan(
       client,
       input,
@@ -135,13 +145,13 @@ export class ActivityRepository {
 
   private async captureReviewEvents(
     client: PoolClient,
-    previous: PreviousObservation,
+    previous: PreviousObservation | null,
     input: ActivityObservationInput,
     observationId: number,
   ): Promise<void> {
     if (!this.githubUsername) return;
 
-    const previousPullRequests = Array.isArray(previous.pullRequests)
+    const previousPullRequests = Array.isArray(previous?.pullRequests)
       ? previous.pullRequests as ActivityPullRequest[]
       : [];
     const previousByIdentity = new Map(
@@ -149,7 +159,8 @@ export class ActivityRepository {
     );
 
     for (const pr of input.pullRequests) {
-      const currentReview = getLatestReviewByUser(pr, this.githubUsername);
+      const currentUserReviews = getReviewsByUser(pr, this.githubUsername);
+      const currentReview = currentUserReviews[0] ?? null;
       if (!currentReview) continue;
 
       const previousPR = previousByIdentity.get(getPRIdentity(pr));
@@ -158,11 +169,19 @@ export class ActivityRepository {
         : null;
 
       if (!previousReview) {
+        const priorReviewOnSamePR = currentUserReviews[1] ?? null;
         await insertSystemEvent(
           client,
           input.ticketKey,
-          "review-submitted",
-          null,
+          priorReviewOnSamePR ? "re-review-submitted" : "review-submitted",
+          priorReviewOnSamePR
+            ? {
+              prNumber: pr.number,
+              repository: pr.repository,
+              reviewState: priorReviewOnSamePR.state,
+              submittedAt: priorReviewOnSamePR.submittedAt,
+            }
+            : null,
           {
             prNumber: pr.number,
             repository: pr.repository,

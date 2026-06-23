@@ -164,6 +164,7 @@ describe("generated provider queries", () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       data: {
         authored: { nodes: [createPR()] },
+        reviewed: { nodes: [] },
         reviewRequested: { nodes: [] },
       },
     })));
@@ -180,6 +181,8 @@ describe("generated provider queries", () => {
       variables: {
         authoredSearchLimit: number;
         authoredSearchQuery: string;
+        reviewedSearchLimit: number;
+        reviewedSearchQuery: string;
         reviewRequestedSearchLimit: number;
         reviewRequestedSearchQuery: string;
       };
@@ -192,6 +195,10 @@ describe("generated provider queries", () => {
     expect(body.variables.reviewRequestedSearchQuery).toContain(
       "review-requested:user org:example repo:owner/service",
     );
+    expect(body.variables.reviewedSearchLimit).toBe(12);
+    expect(body.variables.reviewedSearchQuery).toContain(
+      "reviewed-by:user org:example repo:owner/service",
+    );
     expect(body.query).toContain("latestOpinionatedReviews");
     expect(body.query).toContain("reviewRequests(first: 50) { totalCount }");
     expect(body.query).toContain("latestCommits: commits(last: 1)");
@@ -201,6 +208,7 @@ describe("generated provider queries", () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       data: {
         authored: { nodes: [createPR("APP-100")] },
+        reviewed: { nodes: [] },
         reviewRequested: { nodes: [] },
       },
       errors: [
@@ -221,6 +229,7 @@ describe("generated provider queries", () => {
           headRefName: "APP-100",
           searchContexts: {
             authored: true,
+            reviewed: false,
             reviewRequested: false,
           },
         }),

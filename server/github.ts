@@ -10,10 +10,41 @@ const SEARCH_PRS_QUERY = `
   query SearchPullRequests(
     $authoredSearchQuery: String!,
     $authoredSearchLimit: Int!,
+    $reviewedSearchQuery: String!,
+    $reviewedSearchLimit: Int!,
     $reviewRequestedSearchQuery: String!,
     $reviewRequestedSearchLimit: Int!,
   ) {
     authored: search(query: $authoredSearchQuery, type: ISSUE, first: $authoredSearchLimit) {
+      nodes {
+        ... on PullRequest {
+          number title url headRefName mergeable reviewDecision isDraft updatedAt
+          author { login }
+          repository { name owner { login } }
+          changesRequestedReviews: reviews(last: 1, states: CHANGES_REQUESTED) {
+            nodes { submittedAt }
+          }
+          latestOpinionatedReviews(first: 50) {
+            nodes { state submittedAt author { login } }
+          }
+          latestCommits: commits(last: 1) {
+            nodes { commit { committedDate } }
+          }
+          reviewRequests(first: 50) { totalCount }
+          reviewThreads(first: 50) {
+            nodes {
+              isResolved isOutdated
+              comments(first: 1) { nodes { author { login } createdAt } }
+            }
+          }
+        }
+      }
+    }
+    reviewed: search(
+      query: $reviewedSearchQuery,
+      type: ISSUE,
+      first: $reviewedSearchLimit,
+    ) {
       nodes {
         ... on PullRequest {
           number title url headRefName mergeable reviewDecision isDraft updatedAt
@@ -93,6 +124,7 @@ function isSearchResponse(value: unknown): value is GitHubSearchResponse {
     Array.isArray(response.errors) ||
     (
       Array.isArray(response.data?.authored.nodes) &&
+      Array.isArray(response.data?.reviewed.nodes) &&
       Array.isArray(response.data?.reviewRequested.nodes)
     )
   );
@@ -100,13 +132,14 @@ function isSearchResponse(value: unknown): value is GitHubSearchResponse {
 
 function mergePullRequests(
   authored: GitHubPR[],
+  reviewed: GitHubPR[],
   reviewRequested: GitHubPR[],
 ): GitHubPR[] {
   const merged = new Map<string, GitHubPR>();
 
   const upsert = (
     pr: GitHubPR,
-    context: "authored" | "reviewRequested",
+    context: "authored" | "reviewRequested" | "reviewed",
   ) => {
     const existing = merged.get(pr.url);
     merged.set(pr.url, {
@@ -116,6 +149,9 @@ function mergePullRequests(
         authored:
           (existing?.searchContexts?.authored ?? false) ||
           context === "authored",
+        reviewed:
+          (existing?.searchContexts?.reviewed ?? false) ||
+          context === "reviewed",
         reviewRequested:
           (existing?.searchContexts?.reviewRequested ?? false) ||
           context === "reviewRequested",
@@ -125,6 +161,9 @@ function mergePullRequests(
 
   for (const pr of authored) {
     upsert(pr, "authored");
+  }
+  for (const pr of reviewed) {
+    upsert(pr, "reviewed");
   }
   for (const pr of reviewRequested) {
     upsert(pr, "reviewRequested");
@@ -150,6 +189,13 @@ export async function fetchGitHubPRs(
           "type:pr",
           "state:open",
           `author:${config.username}`,
+          ...config.searchScopes,
+        ].join(" "),
+        reviewedSearchLimit: config.reviewRequestedSearchLimit,
+        reviewedSearchQuery: [
+          "type:pr",
+          "state:open",
+          `reviewed-by:${config.username}`,
           ...config.searchScopes,
         ].join(" "),
         reviewRequestedSearchLimit: config.reviewRequestedSearchLimit,
@@ -183,6 +229,7 @@ export async function fetchGitHubPRs(
   const errors = getErrorMessages(data);
   const hasPartialData =
     Array.isArray(data.data?.authored.nodes) &&
+    Array.isArray(data.data?.reviewed.nodes) &&
     Array.isArray(data.data?.reviewRequested.nodes);
   const onlyPermissionErrors =
     errors.length > 0 && errors.every(isPermissionError);
@@ -210,6 +257,7 @@ export async function fetchGitHubPRs(
   return {
     prs: mergePullRequests(
       data.data?.authored.nodes.filter((pr): pr is GitHubPR => pr !== null) ?? [],
+      data.data?.reviewed.nodes.filter((pr): pr is GitHubPR => pr !== null) ?? [],
       data.data?.reviewRequested.nodes.filter((pr): pr is GitHubPR => pr !== null) ?? [],
     ),
     warnings,

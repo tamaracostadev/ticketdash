@@ -7,8 +7,9 @@ interface ReviewQueueProps {
 }
 
 const REASON_LABELS: Record<ReviewWorkItem["reason"], string> = {
+  "changes-requested-open": "Requested changes",
   "pending-review-request": "Pending review",
-  "re-review-required": "Re-review required",
+  "re-review-required": "Changes resolved - re-review",
 };
 
 export function ReviewQueue({ items }: ReviewQueueProps) {

@@ -271,46 +271,6 @@ function collectIgnoredNoiseIds(rows: DailyEventRow[]): Set<number> {
 
 function classifyDailyEvent(row: DailyEventRow): DailyWorkLogEntry | null {
   if (row.origin === "user") {
-    if (row.event_type === "planned") {
-      return createDailyEntry(
-        "my-actions",
-        row,
-        "Planned ticket",
-        `${row.ticket_key} was added to the plan.`,
-      );
-    }
-    if (row.event_type === "unplanned") {
-      return createDailyEntry(
-        "my-actions",
-        row,
-        "Removed from plan",
-        `${row.ticket_key} was removed from the plan.`,
-      );
-    }
-    if (row.event_type === "hidden") {
-      return createDailyEntry(
-        "my-actions",
-        row,
-        "Hidden ticket",
-        `${row.ticket_key} was hidden from the operational views.`,
-      );
-    }
-    if (row.event_type === "restored") {
-      return createDailyEntry(
-        "my-actions",
-        row,
-        "Restored ticket",
-        `${row.ticket_key} returned to the operational views.`,
-      );
-    }
-    if (row.event_type === "changes-addressed") {
-      return createDailyEntry(
-        "my-actions",
-        row,
-        "Addressed requested changes",
-        `${row.ticket_key} had requested changes addressed.`,
-      );
-    }
     return null;
   }
 
@@ -372,6 +332,14 @@ function classifyDailyEvent(row: DailyEventRow): DailyWorkLogEntry | null {
         row,
         "Completed development",
         `${row.ticket_key} moved from development to code review.`,
+      );
+    }
+    if (previous === "development" && current === "testing") {
+      return createDailyEntry(
+        "my-actions",
+        row,
+        "Completed development",
+        `${row.ticket_key} moved from development to testing.`,
       );
     }
     if (previous === "code-review" && current === "testing") {

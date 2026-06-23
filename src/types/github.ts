@@ -64,6 +64,7 @@ export interface GitHubPR {
   };
   searchContexts?: {
     authored?: boolean;
+    reviewed?: boolean;
     reviewRequested?: boolean;
   };
   reviewThreads: {
@@ -77,6 +78,9 @@ export interface GitHubPR {
 export interface GitHubSearchResponse {
   data?: {
     authored: {
+      nodes: Array<GitHubPR | null>;
+    };
+    reviewed: {
       nodes: Array<GitHubPR | null>;
     };
     reviewRequested: {

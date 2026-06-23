@@ -287,6 +287,14 @@ describe("ReportRepository", () => {
         origin: "system",
         previous_value: "testing",
         ticket_key: "APP-4",
+      }, {
+        current_value: "testing",
+        event_type: "workflow-column-changed",
+        id: 10,
+        occurred_at: new Date("2026-06-19T18:00:00.000Z"),
+        origin: "system",
+        previous_value: "development",
+        ticket_key: "APP-5",
       }]));
 
     const log = await new ReportRepository(createDatabase(query))
@@ -294,13 +302,15 @@ describe("ReportRepository", () => {
 
     expect(log.ignoredNoiseCount).toBe(4);
     expect(log.sections["my-actions"].map((entry) => entry.ticketKey)).toEqual([
-      "APP-3",
+      "APP-5",
       "APP-2",
       "APP-2",
       "APP-2",
     ]);
+    expect(log.sections["my-actions"][0]?.title).toBe("Completed development");
     expect(log.sections["my-actions"][1]?.title).toBe("Re-reviewed PR");
     expect(log.sections["my-actions"][2]?.title).toBe("Reviewed PR");
+    expect(log.sections["my-actions"][3]?.title).toBe("Resolved merge conflict");
     expect(log.sections["workflow-progress"]).toEqual([]);
     expect(log.sections["workflow-regressions"][0]?.ticketKey).toBe("APP-4");
   });

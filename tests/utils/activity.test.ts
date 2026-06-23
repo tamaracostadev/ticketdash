@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseActivityCapture, parseActivityStates } from "../../src/utils/activityValidation";
 import { createActivityCapture } from "../../src/utils/activityCapture";
 import { createDashboardData } from "../../src/utils/dashboard";
-import { createIssue, createPlan } from "../fixtures/domain";
+import { createIssue, createPlan, createPR } from "../fixtures/domain";
 
 describe("activity payload", () => {
   it("contains operational state without personal notes or comments", () => {
@@ -19,6 +19,7 @@ describe("activity payload", () => {
     }).tickets[0];
     const payload = createActivityCapture(
       [ticket],
+      [],
       "2026-06-18T12:00:00.000Z",
     );
     const serialized = JSON.stringify(payload);
@@ -51,5 +52,32 @@ describe("activity payload", () => {
       },
     })?.["APP-100"]?.rejectionReason).toBe("rejected-by-qa");
     expect(parseActivityCapture([{ invalid: true }])).toBeNull();
+  });
+
+  it("captures reviewed PRs outside the assigned Jira queue", () => {
+    const payload = createActivityCapture(
+      [],
+      [createPR("OPS-200", {
+        latestOpinionatedReviews: {
+          nodes: [{
+            author: { login: "reviewer" },
+            state: "APPROVED",
+            submittedAt: "2026-06-18T11:00:00.000Z",
+          }],
+        },
+        searchContexts: { authored: false, reviewed: true, reviewRequested: false },
+      })],
+      "2026-06-18T12:00:00.000Z",
+      ["OPS"],
+      "reviewer",
+    );
+
+    expect(payload).toEqual([
+      expect.objectContaining({
+        jiraStatus: "Code Review",
+        ticketKey: "OPS-200",
+        workflowColumn: "code-review",
+      }),
+    ]);
   });
 });

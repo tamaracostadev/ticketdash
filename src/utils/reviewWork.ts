@@ -4,6 +4,7 @@ import { getPRTicketId } from "./linkTickets";
 import { getOpenThreadCount } from "./pullRequests";
 
 export type ReviewWorkReason =
+  | "changes-requested-open"
   | "pending-review-request"
   | "re-review-required";
 
@@ -18,6 +19,17 @@ export interface ReviewWorkItem {
 interface ReviewWorkOptions {
   ticketKeyPrefixes?: string[];
   username?: string;
+}
+
+export function isTrackedReviewPr(pr: GitHubPR, username: string): boolean {
+  const normalizedUsername = username.trim().toLowerCase();
+  return Boolean(
+    pr.searchContexts?.reviewRequested ||
+      pr.searchContexts?.reviewed ||
+      (pr.latestOpinionatedReviews?.nodes ?? []).some((review) =>
+        review.author?.login.toLowerCase() === normalizedUsername
+      ),
+  );
 }
 
 function getLatestCommitAt(pr: GitHubPR): string | null {
@@ -38,14 +50,33 @@ function getLatestChangesRequestedByUser(
   return reviews[0]?.submittedAt ?? null;
 }
 
+function getLatestReviewStateByUser(
+  pr: GitHubPR,
+  username: string,
+): "APPROVED" | "CHANGES_REQUESTED" | null {
+  const reviews = (pr.latestOpinionatedReviews?.nodes ?? [])
+    .filter((review) =>
+      review.author?.login.toLowerCase() === username.toLowerCase()
+    )
+    .sort((left, right) => Date.parse(right.submittedAt) - Date.parse(left.submittedAt));
+
+  return reviews[0]?.state ?? null;
+}
+
 export function isReReviewRequired(pr: GitHubPR, username: string): boolean {
   const latestChangesRequestedAt = getLatestChangesRequestedByUser(pr, username);
   const latestCommitAt = getLatestCommitAt(pr);
+  const openThreadCount = getOpenThreadCount(pr);
 
   return (
     latestChangesRequestedAt !== null &&
-    latestCommitAt !== null &&
-    Date.parse(latestCommitAt) > Date.parse(latestChangesRequestedAt)
+    (
+      openThreadCount === 0 ||
+      (
+        latestCommitAt !== null &&
+        Date.parse(latestCommitAt) > Date.parse(latestChangesRequestedAt)
+      )
+    )
   );
 }
 
@@ -74,11 +105,19 @@ export function createReviewWorkItems(
       continue;
     }
 
-    const reason: ReviewWorkReason | null = isReReviewRequired(pr, username)
-      ? "re-review-required"
-      : pr.searchContexts?.reviewRequested
-        ? "pending-review-request"
-        : null;
+    const latestReviewStateByUser = getLatestReviewStateByUser(pr, username);
+    const reason: ReviewWorkReason | null =
+      latestReviewStateByUser === "CHANGES_REQUESTED"
+        ? (
+          isReReviewRequired(pr, username)
+            ? "re-review-required"
+            : "changes-requested-open"
+        )
+        : (
+          pr.searchContexts?.reviewRequested || pr.reviewDecision === "REVIEW_REQUIRED"
+            ? "pending-review-request"
+            : null
+        );
 
     if (reason === null) {
       continue;
@@ -95,7 +134,12 @@ export function createReviewWorkItems(
 
   return items.sort((left, right) => {
     if (left.reason !== right.reason) {
-      return left.reason === "re-review-required" ? -1 : 1;
+      const rank: Record<ReviewWorkReason, number> = {
+        "re-review-required": 0,
+        "pending-review-request": 1,
+        "changes-requested-open": 2,
+      };
+      return rank[left.reason] - rank[right.reason];
     }
 
     const leftKey = left.ticketKey ?? left.pr.title;

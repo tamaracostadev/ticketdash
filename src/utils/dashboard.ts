@@ -29,7 +29,11 @@ import {
   getOpenThreadCount,
   sortPRs,
 } from "./pullRequests";
-import { createReviewWorkItems, type ReviewWorkItem } from "./reviewWork";
+import {
+  createReviewWorkItems,
+  isTrackedReviewPr,
+  type ReviewWorkItem,
+} from "./reviewWork";
 import { sortDashboardTickets } from "./sortTickets";
 import { classifyWorkflow } from "./workflow";
 
@@ -195,6 +199,13 @@ export function createDashboardData(
     username: config?.githubUsername,
   });
   const reviewUrls = new Set(reviewItems.map((item) => item.pr.url));
+  const trackedReviewUrls = config?.githubUsername
+    ? new Set(
+      prs
+        .filter((pr) => isTrackedReviewPr(pr, config.githubUsername))
+        .map((pr) => pr.url),
+    )
+    : new Set<string>();
 
   return {
     actions: [
@@ -203,6 +214,8 @@ export function createDashboardData(
     ],
     reviewItems,
     tickets: sortDashboardTickets(tickets),
-    unlinkedPRs: unlinkedPRs.filter((pr) => !reviewUrls.has(pr.url)),
+    unlinkedPRs: unlinkedPRs.filter((pr) =>
+      !reviewUrls.has(pr.url) && !trackedReviewUrls.has(pr.url)
+    ),
   };
 }
