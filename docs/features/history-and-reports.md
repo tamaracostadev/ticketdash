@@ -20,7 +20,9 @@ custom date range using the browser timezone.
 Tracked sections include:
 
 - delivery metrics such as planned, started, moved to review, moved to testing,
-  moved to release, completed and blocked
+  moved to release, completed and blocked; personal completion counts direct
+  `backlog|development -> finalized` transitions performed by the configured
+  Jira user and does not count release finalization
 - review metrics such as reviews completed and re-reviews completed
 - segmented rework metrics for review, QA, conflict and total rework
 - cycle time for `development active -> code review` and
@@ -49,6 +51,9 @@ It includes:
 The view also:
 
 - groups multiple movements under the same ticket
+- records direct `backlog|development -> finalized` transitions under
+  `Done <date>`
+- does not report `release -> finalized` as newly completed personal work
 - supports an explicit date filter
 - ignores noisy workflow status correction chains that return to their original
   state within a short window

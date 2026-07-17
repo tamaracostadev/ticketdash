@@ -132,6 +132,12 @@ describe("ReportRepository", () => {
     const summary = await new ReportRepository(createDatabase(query))
       .fetchSummary("week", "2026-06-19", "America/Sao_Paulo", true);
 
+    expect(String(query.mock.calls[2]?.[0])).toContain("WITH scoped_events AS");
+    expect(String(query.mock.calls[2]?.[0])).toContain("workflow_column = 'code-review'");
+    expect(String(query.mock.calls[2]?.[0])).toContain("jira_status = 'Code Review'");
+    expect(String(query.mock.calls[2]?.[0])).toContain(
+      "previous_value IN ('\"backlog\"'::jsonb, '\"development\"'::jsonb)",
+    );
     expect(summary.timezone).toBe("America/Sao_Paulo");
     expect(summary.hasCompleteObservationCoverage).toBe(true);
     expect(summary.observationCoverageStartAt).toBe("2026-06-01T12:00:00.000Z");
@@ -220,26 +226,32 @@ describe("ReportRepository", () => {
         current_value: "code-review",
         event_type: "workflow-column-changed",
         id: 3,
+        jira_status: "Development",
         occurred_at: new Date("2026-06-19T13:05:00.000Z"),
         origin: "system",
         previous_value: "development",
         ticket_key: "APP-1",
+        workflow_column: "code-review",
       }, {
         current_value: "testing",
         event_type: "workflow-column-changed",
         id: 4,
+        jira_status: "Code Review",
         occurred_at: new Date("2026-06-19T13:08:00.000Z"),
         origin: "system",
         previous_value: "code-review",
         ticket_key: "APP-1",
+        workflow_column: "testing",
       }, {
         current_value: false,
         event_type: "merge-conflict-changed",
         id: 5,
+        jira_status: "Development",
         occurred_at: new Date("2026-06-19T15:00:00.000Z"),
         origin: "system",
         previous_value: true,
         ticket_key: "APP-2",
+        workflow_column: "development",
       }, {
         current_value: {
           prNumber: 88,
@@ -249,10 +261,12 @@ describe("ReportRepository", () => {
         },
         event_type: "review-submitted",
         id: 8,
+        jira_status: "Code Review",
         occurred_at: new Date("2026-06-19T15:30:00.000Z"),
         origin: "system",
         previous_value: null,
         ticket_key: "APP-2",
+        workflow_column: "code-review",
       }, {
         current_value: {
           prNumber: 88,
@@ -262,6 +276,7 @@ describe("ReportRepository", () => {
         },
         event_type: "re-review-submitted",
         id: 9,
+        jira_status: "Code Review",
         occurred_at: new Date("2026-06-19T15:45:00.000Z"),
         origin: "system",
         previous_value: {
@@ -271,30 +286,77 @@ describe("ReportRepository", () => {
           submittedAt: "2026-06-19T15:30:00.000Z",
         },
         ticket_key: "APP-2",
+        workflow_column: "code-review",
       }, {
         current_value: true,
         event_type: "planned",
         id: 6,
+        jira_status: "Development",
         occurred_at: new Date("2026-06-19T16:00:00.000Z"),
         origin: "user",
         previous_value: false,
         ticket_key: "APP-3",
+        workflow_column: "development",
       }, {
         current_value: "development",
         event_type: "rejected-by-qa",
         id: 7,
+        jira_status: "Development",
         occurred_at: new Date("2026-06-19T17:00:00.000Z"),
         origin: "system",
         previous_value: "testing",
         ticket_key: "APP-4",
+        workflow_column: "development",
       }, {
         current_value: "testing",
         event_type: "workflow-column-changed",
         id: 10,
+        jira_status: "Test",
         occurred_at: new Date("2026-06-19T18:00:00.000Z"),
         origin: "system",
         previous_value: "development",
         ticket_key: "APP-5",
+        workflow_column: "testing",
+      }, {
+        current_value: false,
+        event_type: "merge-conflict-changed",
+        id: 11,
+        jira_status: "Code Review",
+        occurred_at: new Date("2026-06-19T18:05:00.000Z"),
+        origin: "system",
+        previous_value: true,
+        ticket_key: "APP-6",
+        workflow_column: "code-review",
+      }, {
+        current_value: "finalized",
+        event_type: "workflow-column-changed",
+        id: 14,
+        jira_status: "Closed",
+        occurred_at: new Date("2026-06-19T18:12:00.000Z"),
+        origin: "system",
+        previous_value: "backlog",
+        ticket_key: "APP-9",
+        workflow_column: "finalized",
+      }, {
+        current_value: "finalized",
+        event_type: "workflow-column-changed",
+        id: 12,
+        jira_status: "Closed",
+        occurred_at: new Date("2026-06-19T18:10:00.000Z"),
+        origin: "system",
+        previous_value: "development",
+        ticket_key: "APP-7",
+        workflow_column: "finalized",
+      }, {
+        current_value: "finalized",
+        event_type: "workflow-column-changed",
+        id: 13,
+        jira_status: "Closed",
+        occurred_at: new Date("2026-06-19T18:15:00.000Z"),
+        origin: "system",
+        previous_value: "release",
+        ticket_key: "APP-8",
+        workflow_column: "finalized",
       }]));
 
     const log = await new ReportRepository(createDatabase(query))
@@ -302,15 +364,19 @@ describe("ReportRepository", () => {
 
     expect(log.ignoredNoiseCount).toBe(4);
     expect(log.sections["my-actions"].map((entry) => entry.ticketKey)).toEqual([
+      "APP-9",
+      "APP-7",
       "APP-5",
       "APP-2",
       "APP-2",
       "APP-2",
     ]);
-    expect(log.sections["my-actions"][0]?.title).toBe("Completed development");
-    expect(log.sections["my-actions"][1]?.title).toBe("Re-reviewed PR");
-    expect(log.sections["my-actions"][2]?.title).toBe("Reviewed PR");
-    expect(log.sections["my-actions"][3]?.title).toBe("Resolved merge conflict");
+    expect(log.sections["my-actions"][0]?.title).toBe("Closed after investigation");
+    expect(log.sections["my-actions"][1]?.title).toBe("Closed after investigation");
+    expect(log.sections["my-actions"][2]?.title).toBe("Completed development");
+    expect(log.sections["my-actions"][3]?.title).toBe("Re-reviewed PR");
+    expect(log.sections["my-actions"][4]?.title).toBe("Reviewed PR");
+    expect(log.sections["my-actions"][5]?.title).toBe("Resolved merge conflict");
     expect(log.sections["workflow-progress"]).toEqual([]);
     expect(log.sections["workflow-regressions"][0]?.ticketKey).toBe("APP-4");
   });

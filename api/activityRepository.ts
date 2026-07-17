@@ -26,6 +26,13 @@ interface ObservationRow extends QueryResultRow {
   workflow_column: ExternalWorkflowColumn;
 }
 
+export interface HistoricalWorkflowTransitionInput {
+  currentColumn: "finalized";
+  occurredAt: string;
+  previousColumn: "backlog" | "development";
+  ticketKey: string;
+}
+
 function toPrevious(row: ObservationRow): PreviousObservation {
   return {
     hasConflict: row.has_conflict,
@@ -73,6 +80,39 @@ export class ActivityRepository {
   public async capture(inputs: ActivityObservationInput[]): Promise<void> {
     await this.database.transaction(async (client) => {
       for (const input of inputs) await this.captureTicket(client, input);
+    });
+  }
+
+  public async captureHistoricalWorkflowTransitions(
+    inputs: HistoricalWorkflowTransitionInput[],
+  ): Promise<void> {
+    await this.database.transaction(async (client) => {
+      for (const input of inputs) {
+        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+          input.ticketKey,
+        ]);
+        const previous = JSON.stringify(input.previousColumn);
+        const current = JSON.stringify(input.currentColumn);
+        const existing = await client.query<{ id: number }>(
+          `SELECT id
+           FROM ticketdash.activity_events
+           WHERE ticket_key = $1
+             AND event_type = 'workflow-column-changed'
+             AND occurred_at = $2
+             AND previous_value = $3::jsonb
+             AND current_value = $4::jsonb
+           LIMIT 1`,
+          [input.ticketKey, input.occurredAt, previous, current],
+        );
+        if (existing.rows.length > 0) continue;
+        await client.query(
+          `INSERT INTO ticketdash.activity_events
+             (observation_id, ticket_key, event_type, origin, occurred_at,
+              previous_value, current_value)
+           VALUES (NULL, $1, 'workflow-column-changed', 'system', $2, $3, $4)`,
+          [input.ticketKey, input.occurredAt, previous, current],
+        );
+      }
     });
   }
 

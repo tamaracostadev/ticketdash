@@ -57,10 +57,12 @@ interface DailyEventRow extends QueryResultRow {
   current_value: unknown;
   event_type: string;
   id: number;
+  jira_status: string | null;
   occurred_at: Date;
   origin: "system" | "user";
   previous_value: unknown;
   ticket_key: string;
+  workflow_column: string | null;
 }
 
 interface ReviewEventValue {
@@ -275,6 +277,12 @@ function classifyDailyEvent(row: DailyEventRow): DailyWorkLogEntry | null {
   }
 
   if (row.event_type === "merge-conflict-changed") {
+    if (
+      row.workflow_column === "code-review" &&
+      row.jira_status === "Code Review"
+    ) {
+      return null;
+    }
     if (row.previous_value === true && row.current_value === false) {
       return createDailyEntry(
         "my-actions",
@@ -342,6 +350,17 @@ function classifyDailyEvent(row: DailyEventRow): DailyWorkLogEntry | null {
         `${row.ticket_key} moved from development to testing.`,
       );
     }
+    if (
+      (previous === "backlog" || previous === "development") &&
+      current === "finalized"
+    ) {
+      return createDailyEntry(
+        "my-actions",
+        row,
+        "Closed after investigation",
+        `${row.ticket_key} was finalized directly from ${previous}.`,
+      );
+    }
     if (previous === "code-review" && current === "testing") {
       return createDailyEntry(
         "workflow-progress",
@@ -356,14 +375,6 @@ function classifyDailyEvent(row: DailyEventRow): DailyWorkLogEntry | null {
         row,
         "Moved to release",
         `${row.ticket_key} progressed from testing to release.`,
-      );
-    }
-    if (previous === "release" && current === "finalized") {
-      return createDailyEntry(
-        "workflow-progress",
-        row,
-        "Finalized ticket",
-        `${row.ticket_key} progressed from release to finalized.`,
       );
     }
     if (previous === "code-review" && current === "development") {
@@ -450,12 +461,15 @@ export class ReportRepository {
     const effectiveTimezone = timezone || DEFAULT_REPORT_TIMEZONE;
     const bounds = await this.getBounds("day", date, effectiveTimezone);
     const result = await this.database.query<DailyEventRow>(
-      `SELECT id, ticket_key, event_type, origin, occurred_at,
-              previous_value, current_value
-       FROM ticketdash.activity_events
+      `SELECT events.id, events.ticket_key, events.event_type, events.origin,
+              events.occurred_at, events.previous_value, events.current_value,
+              observations.workflow_column, observations.jira_status
+       FROM ticketdash.activity_events AS events
+       LEFT JOIN ticketdash.activity_observations AS observations
+         ON observations.id = events.observation_id
        WHERE occurred_at >= $1
          AND occurred_at < $2
-       ORDER BY ticket_key ASC, occurred_at ASC, id ASC`,
+       ORDER BY events.ticket_key ASC, events.occurred_at ASC, events.id ASC`,
       [bounds.start_at, bounds.end_at],
     );
     const ignoredNoiseIds = collectIgnoredNoiseIds(result.rows);
@@ -538,23 +552,31 @@ export class ReportRepository {
     endAt: Date,
   ): Promise<ReportSummary["metrics"]> {
     const result = await this.database.query<MetricRow>(
-      `SELECT metric, array_agg(DISTINCT ticket_key ORDER BY ticket_key) AS ticket_keys
+      `WITH scoped_events AS (
+         SELECT events.ticket_key, events.origin, events.event_type, events.occurred_at,
+                events.previous_value, events.current_value,
+                observations.workflow_column, observations.jira_status
+         FROM ticketdash.activity_events AS events
+         LEFT JOIN ticketdash.activity_observations AS observations
+           ON observations.id = events.observation_id
+       )
+       SELECT metric, array_agg(DISTINCT ticket_key ORDER BY ticket_key) AS ticket_keys
        FROM (
          SELECT 'planned' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'user'
            AND event_type = 'planned'
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'started' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE event_type = 'active-development-started'
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'movedToReview' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'workflow-column-changed'
            AND current_value = '\"code-review\"'::jsonb
@@ -562,7 +584,7 @@ export class ReportRepository {
            AND occurred_at < $2
          UNION ALL
          SELECT 'movedToTesting' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'workflow-column-changed'
            AND current_value = '\"testing\"'::jsonb
@@ -570,7 +592,7 @@ export class ReportRepository {
            AND occurred_at < $2
          UNION ALL
          SELECT 'movedToRelease' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'workflow-column-changed'
            AND current_value = '\"release\"'::jsonb
@@ -578,68 +600,80 @@ export class ReportRepository {
            AND occurred_at < $2
          UNION ALL
          SELECT 'completed' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'workflow-column-changed'
+           AND previous_value IN ('\"backlog\"'::jsonb, '\"development\"'::jsonb)
            AND current_value = '\"finalized\"'::jsonb
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'returned' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type IN ('rejected-by-review', 'rejected-by-qa')
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'reviewRework' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'rejected-by-review'
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'qaRework' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'rejected-by-qa'
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'conflictRework' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'merge-conflict-changed'
            AND current_value = 'true'::jsonb
+           AND NOT (
+             workflow_column = 'code-review' AND
+             jira_status = 'Code Review'
+           )
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'totalRework' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND (
              event_type IN ('rejected-by-review', 'rejected-by-qa') OR
-             (event_type = 'merge-conflict-changed' AND current_value = 'true'::jsonb)
+             (
+               event_type = 'merge-conflict-changed' AND
+               current_value = 'true'::jsonb AND
+               NOT (
+                 workflow_column = 'code-review' AND
+                 jira_status = 'Code Review'
+               )
+             )
            )
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'reviewsCompleted' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 'review-submitted'
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'reReviewsCompleted' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'system'
            AND event_type = 're-review-submitted'
            AND occurred_at >= $1
            AND occurred_at < $2
          UNION ALL
          SELECT 'blocked' AS metric, ticket_key
-         FROM ticketdash.activity_events
+         FROM scoped_events
          WHERE origin = 'user'
            AND event_type IN ('reflection-created', 'reflection-updated')
            AND current_value ->> 'outcome' = 'blocked'

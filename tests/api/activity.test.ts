@@ -68,6 +68,48 @@ describe("activity transitions", () => {
 });
 
 describe("ActivityRepository", () => {
+  it("persists historical workflow transitions idempotently", async () => {
+    let exists = false;
+    const query = vi.fn(async (sql: string, _parameters?: unknown[]) => {
+      if (sql.includes("SELECT id") && sql.includes("activity_events")) {
+        return exists ? result([{ id: 20 }]) : result([]);
+      }
+      if (sql.includes("INSERT INTO ticketdash.activity_events")) exists = true;
+      return result();
+    });
+    const database: Database = {
+      close: vi.fn(),
+      query: vi.fn(),
+      transaction: async (operation) => operation({
+        query,
+        release: vi.fn(),
+      } as unknown as PoolClient),
+    };
+    const transition = {
+      currentColumn: "finalized" as const,
+      occurredAt: "2026-07-15T19:50:21.806Z",
+      previousColumn: "development" as const,
+      ticketKey: "APP-100",
+    };
+
+    const repository = new ActivityRepository(database);
+    await repository.captureHistoricalWorkflowTransitions([
+      transition,
+      transition,
+    ]);
+
+    const inserts = query.mock.calls.filter(([sql]) =>
+      String(sql).includes("INSERT INTO ticketdash.activity_events")
+    );
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.[1]).toEqual([
+      "APP-100",
+      "2026-07-15T19:50:21.806Z",
+      '"development"',
+      '"finalized"',
+    ]);
+  });
+
   it("records a review rejection and plans it in the same transaction", async () => {
     const query = vi.fn(async (sql: string, _parameters?: unknown[]) => {
       if (sql.includes("FROM ticketdash.activity_observations")) {

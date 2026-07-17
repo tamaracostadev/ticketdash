@@ -16,9 +16,11 @@ import { registerLastSeenRoutes } from "./routes/lastSeen.ts";
 import { registerPlanningRoutes } from "./routes/planning.ts";
 import { registerReportRoutes } from "./routes/reports.ts";
 import { registerReflectionRoutes } from "./routes/reflections.ts";
+import type { BackgroundRefreshStatus } from "./backgroundRefresh.ts";
 
 export interface AppDependencies {
   database: Database;
+  getBackgroundRefreshStatus?: () => BackgroundRefreshStatus;
   integrations: IntegrationConfig;
 }
 
@@ -34,7 +36,11 @@ export function buildApp(dependencies: AppDependencies): FastifyInstance {
     new ActivityReadRepository(dependencies.database),
   );
   registerHealthRoutes(app, dependencies.database);
-  registerIntegrationRoutes(app, dependencies.integrations);
+  registerIntegrationRoutes(
+    app,
+    dependencies.integrations,
+    dependencies.getBackgroundRefreshStatus,
+  );
   registerLastSeenRoutes(
     app,
     new LastSeenDatabaseRepository(dependencies.database),

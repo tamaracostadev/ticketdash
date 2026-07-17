@@ -46,9 +46,34 @@ export interface JiraIssue {
 
 export interface JiraSearchResponse {
   issues: JiraIssue[];
+  isLast?: boolean;
+  nextPageToken?: string;
+}
+
+export interface JiraDirectClosure {
+  fromStatus: string;
+  occurredAt: IsoTimestamp;
+  ticketKey: string;
+  toStatus: string;
+}
+
+export interface JiraChangelogItem {
+  field: string;
+  fromString: string | null;
+  toString: string | null;
+}
+
+export interface JiraChangelogHistory {
+  author: JiraUser;
+  created: IsoTimestamp;
+  items: JiraChangelogItem[];
+}
+
+export interface JiraChangelogResponse {
   maxResults: number;
   startAt: number;
   total: number;
+  values: JiraChangelogHistory[];
 }
 
 export interface JiraTransitionStatus {

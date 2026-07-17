@@ -9,6 +9,7 @@ import {
   getJiraTransitionAssistantState,
 } from "../../server/jira.ts";
 import { normalizeTicketKey } from "../../src/utils/ticketKeys.ts";
+import type { BackgroundRefreshStatus } from "../backgroundRefresh.ts";
 
 interface TicketKeyParams {
   ticketKey: string;
@@ -17,8 +18,10 @@ interface TicketKeyParams {
 export function registerIntegrationRoutes(
   app: FastifyInstance,
   config: IntegrationConfig,
+  getBackgroundRefreshStatus?: () => BackgroundRefreshStatus,
 ): void {
   app.get("/api/integrations/status", async () => ({
+    backgroundRefresh: getBackgroundRefreshStatus?.() ?? null,
     config: config.public,
     github: config.github !== null,
     jira: config.jira !== null,

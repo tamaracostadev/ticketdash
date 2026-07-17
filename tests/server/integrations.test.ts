@@ -7,6 +7,7 @@ import {
   fetchJiraTransitions,
   getJiraTransitionAssistantState,
 } from "../../server/jira";
+import { fetchJiraDirectClosures } from "../../server/jiraHistory";
 import { createIssue, createPR } from "../fixtures/domain";
 
 describe("generic integration configuration", () => {
@@ -99,6 +100,80 @@ describe("generated provider queries", () => {
 
     await fetchJiraIssues({ ...base, projectKeys: [] }, request);
     expect(String(request.mock.calls[1]?.[0])).not.toContain("project+in");
+  });
+
+  it("loads paginated direct-closure changelog entries with exact timestamps", async () => {
+    const request = vi.fn().mockImplementation((input: URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/myself")) {
+        return Promise.resolve(new Response(JSON.stringify({ accountId: "user-1" })));
+      }
+      if (url.pathname.endsWith("/search/jql")) {
+        const next = url.searchParams.get("nextPageToken");
+        return Promise.resolve(new Response(JSON.stringify(next
+          ? { isLast: true, issues: [{ key: "APP-200" }] }
+          : {
+            isLast: false,
+            issues: [{ key: "APP-100" }],
+            nextPageToken: "page-2",
+          })));
+      }
+      const ticketKey = url.pathname.includes("APP-100") ? "APP-100" : "APP-200";
+      return Promise.resolve(new Response(JSON.stringify({
+        maxResults: 100,
+        startAt: 0,
+        total: 1,
+        values: [{
+          author: { accountId: "user-1", displayName: "User" },
+          created: ticketKey === "APP-100"
+            ? "2026-07-15T19:50:21.806Z"
+            : "2026-07-15T21:25:00.976Z",
+          items: [{
+            field: "status",
+            fromString: ticketKey === "APP-100" ? "Dev" : "Open",
+            toString: "Closed",
+          }],
+        }],
+      })));
+    });
+    const config = {
+      apiToken: "token",
+      email: "user@example.com",
+      issueSearchLimit: 50,
+      projectKeys: ["APP"],
+      url: "https://example.atlassian.net",
+    };
+
+    const closures = await fetchJiraDirectClosures(
+      config,
+      ["Closed", 'Done "Verified"'],
+      "2026-07-15T00:00:00.000Z",
+      "2026-07-16T00:00:00.000Z",
+      request,
+    );
+
+    expect(closures).toEqual([
+      {
+        fromStatus: "Dev",
+        occurredAt: "2026-07-15T19:50:21.806Z",
+        ticketKey: "APP-100",
+        toStatus: "Closed",
+      },
+      {
+        fromStatus: "Open",
+        occurredAt: "2026-07-15T21:25:00.976Z",
+        ticketKey: "APP-200",
+        toStatus: "Closed",
+      },
+    ]);
+    const searchCalls = request.mock.calls
+      .map(([input]) => new URL(String(input)))
+      .filter((url) => url.pathname.endsWith("/search/jql"));
+    expect(searchCalls).toHaveLength(2);
+    expect(searchCalls[1]?.searchParams.get("nextPageToken")).toBe("page-2");
+    expect(searchCalls[0]?.searchParams.get("jql")).toContain(
+      'status CHANGED TO "Done \\"Verified\\"" BY currentUser()',
+    );
   });
 
   it("loads Jira transitions and resolves a single safe development candidate", async () => {

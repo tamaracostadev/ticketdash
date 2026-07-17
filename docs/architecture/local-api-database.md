@@ -24,7 +24,8 @@ inside the Docker network.
 
 ## Responsibilities
 
-- `api/`: HTTP routes, health checks, migrations and PostgreSQL access
+- `api/`: HTTP routes, health checks, migrations, background integration
+  refresh, and PostgreSQL access
 - `server/`: Jira and GitHub clients plus environment parsing
 - `src/api/` and `src/hooks/`: browser-side data loading
 
@@ -34,6 +35,10 @@ inside the Docker network.
 - `GET /api/health/db`: process and database health
 
 The API starts only after the database is healthy and migrations have run.
+
+When enabled, the API also owns periodic Jira and GitHub polling while the
+Docker stack is up. That background refresh remains server-side and does not
+require the dashboard browser tab to stay open.
 
 ## Security boundary
 

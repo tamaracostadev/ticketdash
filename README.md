@@ -39,6 +39,7 @@ All screenshots below use `?demo=true`, which loads fully fictitious local data.
 - Supports persisted manual ticket ordering inside each workflow column.
 - Distinguishes `development` from `active in development` work state.
 - Persists activity snapshots, workflow events, review events and daily work log data.
+- Refreshes Jira and GitHub state in the local API while the Docker stack stays up.
 - Keeps Jira and GitHub credentials on the local API process.
 
 ## Requirements
@@ -146,6 +147,8 @@ See [.env.example](./.env.example) for every supported setting.
 | `GITHUB_SEARCH_SCOPES` | No | Additional GitHub search qualifiers such as `org:example` or `repo:owner/name`. |
 | `GITHUB_AUTHORED_PRS_LIMIT` | No | Maximum authored pull requests loaded per refresh. Defaults to `30`. |
 | `GITHUB_REVIEW_REQUESTED_PRS_LIMIT` | No | Maximum review-requested pull requests loaded per refresh. Defaults to `30`. |
+| `BACKGROUND_REFRESH_ENABLED` | No | Enables background Jira/GitHub refresh in the local API. Defaults to `true`. |
+| `BACKGROUND_REFRESH_INTERVAL_MS` | No | Background refresh interval in milliseconds. Defaults to `300000` (5 minutes). |
 | `TICKET_KEY_PREFIXES` | No | Comma-separated Jira key prefixes accepted in PR titles and branch names. Empty derives them from loaded Jira tickets. |
 | `WORKFLOW_BACKLOG_STATUSES` | No | Jira status names that map to the backlog column. |
 | `WORKFLOW_DEVELOPMENT_STATUSES` | No | Jira status names that map to the development column. |
@@ -176,6 +179,16 @@ take a few minutes. Subsequent runs reuse the cache.
 
 Open `http://localhost:5174`. Only the dashboard is published, and only on
 `127.0.0.1`. The API and PostgreSQL remain inside the Docker network.
+
+While the Docker stack is running, the local API can continue refreshing Jira
+issues and GitHub pull requests in the background even when the browser tab is
+closed. Use `BACKGROUND_REFRESH_ENABLED=false` to disable this behavior or
+`BACKGROUND_REFRESH_INTERVAL_MS` to tune the polling cadence.
+
+On startup, background refresh also checks the previous seven days of Jira
+status history for tickets closed directly from backlog or development by the
+configured Jira user. These closures remain absent from the active board but
+are recovered into personal reports with their original Jira timestamps.
 
 For public screenshots or recordings without real Jira or GitHub data, open:
 
@@ -210,6 +223,9 @@ docker compose down
   every relevant repository and that `GITHUB_USERNAME` matches the GitHub
   login that authors the PRs or receives the review requests you expect to
   see.
+- **Background refresh is not moving activity state forward.** Confirm the API
+  container is healthy, then inspect `docker compose logs api` and verify
+  `BACKGROUND_REFRESH_ENABLED` is not disabled.
 - **Empty Kanban after a successful start.** Clear `JIRA_PROJECT_KEYS` to let
   every visible project through, or widen `WORKFLOW_*_STATUSES` if your Jira
   uses custom status names.

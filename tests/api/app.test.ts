@@ -52,6 +52,7 @@ describe("local API", () => {
 
     const response = await app.inject("/api/integrations/status");
     expect(response.json()).toEqual({
+      backgroundRefresh: null,
       config: EMPTY_PUBLIC_DASHBOARD_CONFIG,
       github: true,
       jira: false,
@@ -86,6 +87,41 @@ describe("local API", () => {
     });
     expect((await app.inject("/test/integration")).json()).toEqual({
       message: "Rejected [redacted]",
+    });
+  });
+
+  it("exposes background refresh status without leaking secrets", async () => {
+    const app = buildApp({
+      database: createDatabase(),
+      getBackgroundRefreshStatus: () => ({
+        enabled: true,
+        intervalMs: 300000,
+        isRunning: false,
+        lastError: "ok",
+        lastFinishedAt: "2026-07-08T12:00:00.000Z",
+        lastStartedAt: "2026-07-08T11:59:00.000Z",
+        lastSuccessAt: "2026-07-08T12:00:00.000Z",
+      }),
+      integrations: {
+        github: null,
+        jira: null,
+        public: EMPTY_PUBLIC_DASHBOARD_CONFIG,
+      },
+    });
+
+    expect((await app.inject("/api/integrations/status")).json()).toEqual({
+      backgroundRefresh: {
+        enabled: true,
+        intervalMs: 300000,
+        isRunning: false,
+        lastError: "ok",
+        lastFinishedAt: "2026-07-08T12:00:00.000Z",
+        lastStartedAt: "2026-07-08T11:59:00.000Z",
+        lastSuccessAt: "2026-07-08T12:00:00.000Z",
+      },
+      config: EMPTY_PUBLIC_DASHBOARD_CONFIG,
+      github: false,
+      jira: false,
     });
   });
 });
